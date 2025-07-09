@@ -1,76 +1,38 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program } from '@coral-xyz/anchor'
-import { Keypair } from '@solana/web3.js'
-import { Counter } from '../target/types/counter'
+import { BankrunProvider, startAnchor } from "anchor-bankrun";
+import { Keypair, PublicKey } from '@solana/web3.js'
+import {Voting} from "../target/types/voting"
+import { Anchor } from 'lucide-react';
+import { expect,it, beforeAll } from '@jest/globals'; // <--- Correct import for Jest globals
+import { describe } from 'node:test';
+const IDL = require("../target/idl/voting.json")
 
-describe('counter', () => {
-  // Configure the client to use the local cluster.
-  const provider = anchor.AnchorProvider.env()
-  anchor.setProvider(provider)
-  const payer = provider.wallet as anchor.Wallet
+const votingAddress  = new PublicKey("FqzkXZdwYjurnUKetJCAvaUw5WAqbwzU6gZEwydeEfqS")
 
-  const program = anchor.workspace.Counter as Program<Counter>
+it('counter', async() => {
+  const context = await startAnchor("",[{name : "voting",programId : votingAddress}],[]);
+  const provider = new BankrunProvider(context);
 
-  const counterKeypair = Keypair.generate()
+  const votingProgram = new Program<Voting>(IDL,provider)
 
-  it('Initialize Counter', async () => {
-    await program.methods
-      .initialize()
-      .accounts({
-        counter: counterKeypair.publicKey,
-        payer: payer.publicKey,
-      })
-      .signers([counterKeypair])
-      .rpc()
+  await votingProgram.methods.initializePoll(
+      new anchor.BN(1),
+      "What is your favourite phone brand",
+      new anchor.BN(Date.now()/1000),
+      new anchor.BN(1852039640/1000 + 3600),
+  ).rpc()
 
-    const currentCount = await program.account.counter.fetch(counterKeypair.publicKey)
+    const [pollAddress] = PublicKey.findProgramAddressSync(
+      [new anchor.BN(1).toArrayLike(Buffer,"le",8)],
+      votingAddress
+    )
+      const poll = await votingProgram.account.poll.fetch(pollAddress);
+      console.log(poll)
 
-    expect(currentCount.count).toEqual(0)
+      // Use Jest's expect for this assertion
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      expect(poll.pollId.toNumber()).toBe(1);
+      expect(poll.description).toBe("What is your favourite phone brand");
+      expect(poll.pollStart.toNumber()).toBeGreaterThan(poll.pollEnd.toNumber());
   })
-
-  it('Increment Counter', async () => {
-    await program.methods.increment().accounts({ counter: counterKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.counter.fetch(counterKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(1)
-  })
-
-  it('Increment Counter Again', async () => {
-    await program.methods.increment().accounts({ counter: counterKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.counter.fetch(counterKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(2)
-  })
-
-  it('Decrement Counter', async () => {
-    await program.methods.decrement().accounts({ counter: counterKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.counter.fetch(counterKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(1)
-  })
-
-  it('Set counter value', async () => {
-    await program.methods.set(42).accounts({ counter: counterKeypair.publicKey }).rpc()
-
-    const currentCount = await program.account.counter.fetch(counterKeypair.publicKey)
-
-    expect(currentCount.count).toEqual(42)
-  })
-
-  it('Set close the counter account', async () => {
-    await program.methods
-      .close()
-      .accounts({
-        payer: payer.publicKey,
-        counter: counterKeypair.publicKey,
-      })
-      .rpc()
-
-    // The account should no longer exist, returning null.
-    const userAccount = await program.account.counter.fetchNullable(counterKeypair.publicKey)
-    expect(userAccount).toBeNull()
-  })
-})
