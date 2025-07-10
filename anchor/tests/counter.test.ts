@@ -56,9 +56,9 @@ it('counter', async() => {
     await votingProgram.methods.initializeCandidate(
       "Apple", 
       new anchor.BN(1),
-    ).accounts({
-        
-    })
+    ).rpc()
+    const data = votingProgram.account.candidate.fetch(appleid);
+    console.log(data)
   });
   it("vote",async() => {
     
