@@ -57,10 +57,30 @@ it('counter', async() => {
       "Apple", 
       new anchor.BN(1),
     ).rpc()
-    const data = votingProgram.account.candidate.fetch(appleid);
-    console.log(data)
+    await votingProgram.methods.initializeCandidate(
+      "Android", 
+      new anchor.BN(1),
+    ).rpc()
+    const appledata =await  votingProgram.account.candidate.fetch(appleid);
+    console.log(appledata)
+    expect(appledata.candidateVotes.toNumber()).toEqual(0)
+    const androiddata =await  votingProgram.account.candidate.fetch(androidid);
+    console.log(androiddata)
+    expect(androiddata.candidateVotes.toNumber()).toEqual(0)
   });
   it("vote",async() => {
-    
+    await votingProgram.methods.vote(
+      "Android",
+      new anchor.BN(1)
+    ).rpc()
+    const [androidid] = PublicKey.findProgramAddressSync(
+      [new anchor.BN(1).toArrayLike(Buffer,"le",8),Buffer.from("Android")],
+      votingAddress
+    )
+    console.log(androidid)
+    const androiddata =await votingProgram.account.candidate.fetch(androidid);
+    console.log(androiddata)
+    //It mut increase now
+    expect(androiddata.candidateVotes.toNumber()).toEqual(1)
   })
 })
